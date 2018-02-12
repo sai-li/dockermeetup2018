@@ -1,0 +1,157 @@
+name: provision-aks
+description: provision aks cluster and common infra
+inputs:
+  azureSubscriptionId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of azure subscription
+  azureLoginId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of user, service principal, or app to login with
+  azureLoginSecret:
+    string:
+      constraints: { minLength: 1 }
+      description: secret of user, service principal, or app to login with
+      isSecret: true
+  azureLoginTenantId:
+    string:
+      constraints: { minLength: 1 }
+      description: this is the azure ad directory id
+      default: a537e37f-5f7d-414a-90dc-66a7b74fbac4
+  azureLoginType:
+    string:
+      constraints: { enum: [user, sp]}
+      description: type of login; 'user' (default) or 'sp' for service principal
+      default: user
+  environment:
+    string:
+      constraints: { minLength: 1 }
+      description: ncptst01, ncpstg01, ncpprd01
+  azureLocation:
+    string:
+      constraints: { minLength: 1 }
+      description: location of provisioned keyvault
+      default: eastus
+  kubernetesVersion:
+    string:
+      constraints: { enum: ['1.7.7', '1.8.2'] }
+      description: kubernetes version
+      default: '1.7.7'
+  adminUsername:
+    string:
+      constraints: { minLength: 4, maxLength: 15 }
+      description: username on provisioned virtual machines
+      default: nintexadmin
+  nodeCount:
+    number:
+      constraints: { format: integer, minimum: 1 }
+      description: number of cluster nodes to provision
+      default: 1
+  nodeVmSize:
+    string:
+      description: vm size of provisioned cluster nodes
+      default: Standard_D2_v2
+  nodeOSDiskSize:
+    number:
+      constraints: { format: integer, minimum: 1 }
+      description: Size in GB of the OS disk for each node in the node pool.
+      default: 30
+outputs:
+  resourceGroupName:
+    string:
+      constraints: { minLength: 1 }
+  keyVaultName:
+    string:
+      constraints: { minLength: 1 }
+  servicePrincipalName:
+    string:
+      constraints: { minLength: 1 }
+  appId:
+    string:
+      constraints: { minLength: 1 }
+  appKey:
+    string:
+      constraints: { minLength: 1 }
+run:
+  serial:
+    - container:
+        image: { ref: 'azuresdk/azure-cli-python:0.2.10' }
+        cmd: [ /cmd.sh ]
+        files: { /cmd.sh: /cmd.sh }
+        envVars: { subscriptionId: $(azureSubscriptionId), environment }
+        stdOut:
+          resourceGroupName=: resourceGroupName
+          keyVaultName=: keyVaultName
+          servicePrincipalName=: servicePrincipalName
+    - op:
+        pkg: { ref: github.com/opspec-pkgs/azure.group.create#2.0.0 }
+        inputs:
+          subscriptionId: $(azureSubscriptionId)
+          loginId: $(azureLoginId)
+          loginSecret: $(azureLoginSecret)
+          loginType: $(azureLoginType)
+          loginTenantId: $(azureLoginTenantId)
+          location: $(azureLocation)
+          name: $(resourceGroupName)
+    - op:
+        pkg: { ref: github.com/opspec-pkgs/azure.keyvault.create#2.0.0 }
+        inputs: 
+          subscriptionId: $(azureSubscriptionId)
+          loginId: $(azureLoginId)
+          loginSecret: $(azureLoginSecret)
+          loginType: $(azureLoginType)
+          loginTenantId: $(azureLoginTenantId)
+          name: $(keyVaultName)
+          resourceGroup: $(resourceGroupName)
+          location: $(azureLocation)
+          enabledForDeployment: 'true'
+          enabledForDiskEncryption: 'true'
+          enabledForTemplateDeployment: 'true'
+          noSelfPerms: 'false'
+          sku: 'standard'
+    - op:
+        pkg: { ref: provision-aks/provision-service-principal }
+        inputs: 
+          azureSubscriptionId:
+          azureLoginId:
+          azureLoginSecret:
+          azureLoginTenantId:
+          azureLoginType:
+          servicePrincipalName: $(servicePrincipalName)
+          vaultName: $(keyVaultName)
+        outputs:
+          appId:
+          appKey:
+    - op:
+        pkg: { ref: provision-aks/get-ssh-cert }
+        inputs:
+          azureSubscriptionId:
+          azureLoginId:
+          azureLoginSecret:
+          azureLoginTenantId:
+          azureLoginType:
+          location: $(azureLocation)
+          environment:
+          vaultName: $(keyVaultName)
+        outputs:
+          commonCertKey:
+          commonCertPub:
+    - op:
+        pkg: { ref: provision-aks/provision-cluster }
+        inputs:
+          azureSubscriptionId:
+          azureLoginId:
+          azureLoginSecret:
+          azureLoginTenantId:
+          azureLoginType:
+          environment:
+          location: $(azureLocation)
+          sshKeyValue: $(commonCertPub)
+          servicePrincipal: $(appId)
+          clientSecret: $(appKey)
+          kubernetesVersion:
+          nodeCount:
+          adminUsername:
+          nodeVmSize:
+          nodeOSDiskSize:

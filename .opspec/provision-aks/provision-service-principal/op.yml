@@ -1,0 +1,73 @@
+name: provision-aks/provision-service-principal
+description: provision service principal for aks cluster
+inputs:
+  azureSubscriptionId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of azure subscription
+  azureLoginId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of user, service principal, or app to login with
+  azureLoginSecret:
+    string:
+      constraints: { minLength: 1 }
+      description: secret of user, service principal, or app to login with
+      isSecret: true
+  azureLoginTenantId:
+    string:
+      constraints: { minLength: 1 }
+      description: this is the azure ad directory id
+      default: a537e37f-5f7d-414a-90dc-66a7b74fbac4
+  azureLoginType:
+    string:
+      constraints: { enum: [user, sp]}
+      description: type of login; 'user' (default) or 'sp' for service principal
+      default: user
+  servicePrincipalName:
+    string:
+      constraints: { minLength: 1 }
+      description: name of service principal
+  vaultName:
+    string:
+      constraints: { minLength: 1 }
+      description: name of key vault storing certificate
+outputs:
+  appId:
+    string:
+      constraints: { minLength: 1 }
+  appKey:
+    string:
+      constraints: { minLength: 1 }
+run:
+  serial:
+    - container:
+        image: { ref: 'azuresdk/azure-cli-python:0.2.10' }
+        cmd: [ /cmd.sh ]
+        files: { /cmd.sh }
+        envVars:
+          subscriptionId: $(azureSubscriptionId)
+          loginId: $(azureLoginId)
+          loginSecret: $(azureLoginSecret)
+          loginTenantId: $(azureLoginTenantId)
+          loginType: $(azureLoginType)
+          name: $(servicePrincipalName)
+          role: 'Contributor'
+          years: '2'
+          vaultName: 
+        stdOut:
+          appId=: appId
+          appKey=: appKey
+    - op:
+        pkg: { ref: github.com/opspec-pkgs/azure.keyvault.secret.set#2.0.0 }
+        inputs:
+          subscriptionId: $(azureSubscriptionId)
+          loginId: $(azureLoginId)
+          loginSecret: $(azureLoginSecret)
+          loginTenantId: $(azureLoginTenantId)
+          loginType: $(azureLoginType)
+          name: $(servicePrincipalName)
+          vaultName:
+          value: $(appKey)
+          expires: '2020-06-13'
+          description: 'service principle key used by subscription for provisioning common infra in aks'

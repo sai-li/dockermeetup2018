@@ -1,0 +1,22 @@
+# Vagrant & Packer
+.vagrant/
+packer_cache/
+log/
+builds/
+
+# VIM related 
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+*~
+
+### JetBrains
+.idea/
+
+### Ansible
+*.retry
+
+### opspec
+args.yml

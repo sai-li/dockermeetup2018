@@ -1,0 +1,61 @@
+name: provision-aks/get-ssh-cert
+description: generate or retrieve the cert and key for aks cluster
+inputs:
+  azureSubscriptionId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of azure subscription
+  azureLoginId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of user, service principal, or app to login with
+  azureLoginSecret:
+    string:
+      constraints: { minLength: 1 }
+      description: secret of user, service principal, or app to login with
+      isSecret: true
+  azureLoginTenantId:
+    string:
+      constraints: { minLength: 1 }
+      description: this is the azure ad directory id
+      default: a537e37f-5f7d-414a-90dc-66a7b74fbac4
+  azureLoginType:
+    string:
+      constraints: { enum: [user, sp]}
+      description: type of login; 'user' (default) or 'sp' for service principal
+      default: user
+  location:
+    string:
+      constraints: { minLength: 1 }
+      description: location of provisioned keyvault
+      default: eastus
+  environment:
+    string:
+      constraints: { minLength: 1 }
+      description: ncptst01, ncpstg01, ncpprd01
+  vaultName:
+    string:
+      constraints: { minLength: 1 }
+      description: name of key vault storing certificate
+outputs:
+  commonCertKey:
+    file:
+      description: ssh private key used for common infra
+  commonCertPub:
+    file:
+      description: ssh public cert used for common infra
+run:
+  serial:
+    - container:
+        image: { ref: 'azuresdk/azure-cli-python:0.2.10' }
+        cmd: [ /cmd.sh ]
+        files: { /cmd.sh, /id_aks: $(commonCertKey), /id_aks.pub: $(commonCertPub) }
+        envVars:
+          subscriptionId: $(azureSubscriptionId)
+          loginId: $(azureLoginId)
+          loginSecret: $(azureLoginSecret)
+          loginTenantId: $(azureLoginTenantId)
+          loginType: $(azureLoginType)
+          location:
+          environment:
+          vaultName:

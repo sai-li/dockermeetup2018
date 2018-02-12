@@ -1,0 +1,117 @@
+name: provision-aks/provision-cluster
+description: provision the azure resources for azure kubernetes service
+inputs:
+  azureSubscriptionId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of azure subscription
+  azureLoginId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of user, service principal, or app to login with
+  azureLoginSecret:
+    string:
+      constraints: { minLength: 1 }
+      description: secret of user, service principal, or app to login with
+      isSecret: true
+  azureLoginTenantId:
+    string:
+      constraints: { minLength: 1 }
+      description: this is the azure ad directory id
+      default: a537e37f-5f7d-414a-90dc-66a7b74fbac4
+  azureLoginType:
+    string:
+      constraints: { enum: [user, sp]}
+      description: type of login; 'user' (default) or 'sp' for service principal
+      default: user
+  environment:
+    string:
+      constraints: { minLength: 1 }
+      description: ncptst01, ncpstg01, ncpprd01
+  location:
+    string:
+      constraints: { minLength: 1 }
+      description: location of provisioned keyvault
+      default: eastus
+  sshKeyValue:
+    file:
+      description: ssh key to add authorized_keys on provisioned cluster nodes
+  servicePrincipal:
+    string:
+     constraints: { minLength: 1 }
+     description: service principal used by aks cluster
+  clientSecret:
+    string:
+     constraints: { minLength: 1 }
+     description: client secret used by aks cluster
+  kubernetesVersion:
+    string:
+      constraints: { enum: ['1.7.7', '1.8.2'] }
+      description: kubernetes version
+      default: '1.7.7'
+  nodeCount:
+    number:
+      constraints: { format: integer, minimum: 1 }
+      description: number of cluster nodes to provision
+      default: 1
+  adminUsername:
+    string:
+      constraints: { minLength: 4, maxLength: 15 }
+      description: username on provisioned virtual machines
+      default: nintexadmin
+  nodeVmSize:
+    string:
+      description: vm size of provisioned cluster nodes
+      default: Standard_D2_v2
+  nodeOSDiskSize:
+    number:
+      constraints: { format: integer, minimum: 1 }
+      description: Size in GB of the OS disk for each node in the node pool.
+      default: 30
+outputs:
+  resourceGroupName:
+    string:
+     constraints: { minLength: 1 }
+  aksClusterName:
+    string:
+      constraints: { minLength: 1 }
+run:
+  serial:
+    - container:
+        image: { ref: 'alpine' }
+        cmd: [ /cmd.sh ]
+        files: { /cmd.sh: /cmd.sh }
+        envVars: { environment }
+        stdOut:
+          resourceGroupName=: resourceGroupName
+          aksClusterName=: aksClusterName
+    - op:
+        pkg: { ref: github.com/opspec-pkgs/azure.group.create#2.0.0 }
+        inputs:
+          subscriptionId: $(azureSubscriptionId)
+          loginId: $(azureLoginId)
+          loginSecret: $(azureLoginSecret)
+          loginType: $(azureLoginType)
+          loginTenantId: $(azureLoginTenantId)
+          location:
+          name: $(resourceGroupName)
+    - op:
+        pkg: { ref: github.com/opspec-pkgs/azure.aks.create#1.0.2 }
+        inputs: 
+          subscriptionId: $(azureSubscriptionId)
+          loginId: $(azureLoginId)
+          loginSecret: $(azureLoginSecret)
+          loginType: $(azureLoginType)
+          loginTenantId: $(azureLoginTenantId)
+          name: $(aksClusterName)
+          resourceGroup: $(resourceGroupName)
+          adminUsername:
+          dnsPrefix: $(aksClusterName)
+          kubernetesVersion:
+          location:
+          nodeCount:
+          nodeOSDiskSize:
+          nodeVmSize:
+          sshKeyValue:
+          servicePrincipal:
+          clientSecret:
