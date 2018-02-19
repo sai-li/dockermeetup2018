@@ -1,0 +1,32 @@
+name: build
+description: runs all build ops
+inputs:
+  DOCKER_USERNAME:
+    string:
+      constraints: { minLength: 1 }
+      description: Username for docker registry
+  DOCKER_PASSWORD:
+    string:
+      constraints: { minLength: 1 }
+      description: Password for docker registry
+      isSecret: true
+  srcDir:
+    dir:
+      default: .
+      description: directory containing the src
+run:
+  serial:
+    - op:
+        pkg: { ref: github.com/opspec-pkgs/docker.image.build#2.0.0 }
+        inputs:
+          dockerfile: $(/Dockerfile)
+          context: $(srcDir)
+          imageName: 'abhijeetahuja/azure-vote-front:latest'
+        outputs: { imageTar }
+    - op:
+        pkg: { ref: github.com/opspec-pkgs/docker.image.push#2.0.0 }
+        inputs:
+          imageTar:
+          imageName: 'abhijeetahuja/azure-vote-front'
+          username: $(DOCKER_USERNAME)
+          password: $(DOCKER_PASSWORD)
