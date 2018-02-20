@@ -35,7 +35,7 @@ inputs:
 run:
   serial:
     - op:
-        pkg: { ref: github.com/opspec-pkgs/azure.aks.get-kubeconfig#1.0.0 }
+        pkg: { ref: github.com/opspec-pkgs/azure.aks.get-kubeconfig#1.0.1 }
         inputs:
           loginId: $(azureLoginId)
           loginSecret: $(azureLoginSecret)
