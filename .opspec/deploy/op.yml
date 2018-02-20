@@ -1,0 +1,53 @@
+name: deploy
+description: deploys azure-vote-app to kubernetes
+inputs:
+  srcDir:
+    dir:
+      default: .
+      description: directory containing the src
+  azureSubscriptionId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of azure subscription
+  azureLoginId:
+    string:
+      constraints: { minLength: 1 }
+      description: id of user, service principal, or app to login with
+  azureLoginSecret:
+    string:
+      constraints: { minLength: 1 }
+      description: secret of user, service principal, or app to login with
+      isSecret: true
+  azureLoginTenantId:
+    string:
+      constraints: { minLength: 1 }
+      description: this is the azure ad directory id
+      default: a537e37f-5f7d-414a-90dc-66a7b74fbac4
+  azureLoginType:
+    string:
+      constraints: { enum: [user, sp]}
+      description: type of login; 'user' (default) or 'sp' for service principal
+      default: user
+  namespace:
+    string:
+      constraints: { minLength: 1 }
+      default: 'core'
+run:
+  serial:
+    - op:
+        pkg: { ref: github.com/opspec-pkgs/azure.aks.get-kubeconfig#1.0.0 }
+        inputs:
+          loginId: $(azureLoginId)
+          loginSecret: $(azureLoginSecret)
+          loginTenantId: $(azureLoginTenantId)
+          loginType: $(azureLoginType)
+          subscriptionId: $(azureSubscriptionId)
+          name: $(aksClusterName)
+          resourceGroup: $(resourceGroupName)
+        outputs: { kubeConfig }
+    - op:
+        pkg: { ref: github.com/opspec-pkgs/k8s.configuration.apply#2.0.0 }
+        inputs:
+          configuration: /k8s-resources.yml
+          kubeConfig: $(kubeConfig)
+          namespace: $(namespace)
