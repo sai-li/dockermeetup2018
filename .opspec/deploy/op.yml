@@ -31,7 +31,13 @@ inputs:
   namespace:
     string:
       constraints: { minLength: 1 }
-      default: 'core'
+      default: 'default'
+  resourceGroupName:
+    string:
+      constraints: { minLength: 1 }
+  aksClusterName:
+    string:
+      constraints: { minLength: 1 }
 run:
   serial:
     - op:
